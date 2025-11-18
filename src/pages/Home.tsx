@@ -1,16 +1,12 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { RecordButton } from "@/components/RecordButton";
 import { FileUpload } from "@/components/FileUpload";
 import { TranscriptionResult } from "@/components/TranscriptionResult";
 import { ProgressBar } from "@/components/ProgressBar";
 import { toast } from "sonner";
-import { initWhisper, transcribeAudio, TranscriptionProgress } from "@/lib/whisper";
+import { transcribeAudio, TranscriptionProgress } from "@/lib/whisper";
 
 const Home = () => {
-  useEffect(() => {
-    initWhisper();
-  }, []);
-
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState("");
   const [showResult, setShowResult] = useState(false);

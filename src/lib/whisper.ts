@@ -67,26 +67,13 @@ export const transcribeAudio = async (
 
     // Convert audio file to array buffer
     const arrayBuffer = await audioFile.arrayBuffer();
-
-    // Decode the audio in its native sample rate
-    const audioContext = new AudioContext();
-    const decodedAudio = await audioContext.decodeAudioData(arrayBuffer);
-
-    // Resample the audio to 16kHz using an OfflineAudioContext
-    const targetSampleRate = 16000;
-    const offlineContext = new OfflineAudioContext(
-      decodedAudio.numberOfChannels,
-      decodedAudio.duration * targetSampleRate,
-      targetSampleRate
-    );
-
-    const source = offlineContext.createBufferSource();
-    source.buffer = decodedAudio;
-    source.connect(offlineContext.destination);
-    source.start();
-
-    const resampledAudio = await offlineContext.startRendering();
-    const audioData = resampledAudio.getChannelData(0);
+    
+    // Create audio context to decode the audio
+    const audioContext = new AudioContext({ sampleRate: 16000 });
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    
+    // Get the audio data as Float32Array
+    const audioData = audioBuffer.getChannelData(0);
 
     onProgress?.({
       status: "processing",
