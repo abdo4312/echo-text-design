@@ -23,7 +23,7 @@ export const initWhisper = async (
     // @ts-ignore - Complex type inference
     const model: AutomaticSpeechRecognitionPipeline = await pipeline(
       "automatic-speech-recognition",
-      "onnx-community/whisper-tiny",
+      "onnx-community/whisper-base",
       { device: "webgpu", dtype: "fp32" }
     );
 
@@ -86,6 +86,8 @@ export const transcribeAudio = async (
       language: "arabic",
       task: "transcribe",
       return_timestamps: false,
+      chunk_length_s: 30,
+      stride_length_s: 5,
     }) as { text: string };
 
     onProgress?.({
@@ -141,13 +143,6 @@ export const recordAudio = async (): Promise<Blob> => {
     };
 
     mediaRecorder.start();
-
-    // Stop after 30 seconds max
-    setTimeout(() => {
-      if (mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-      }
-    }, 30000);
 
     // Return a function to stop recording manually
     (mediaRecorder as any)._stop = () => mediaRecorder.stop();
