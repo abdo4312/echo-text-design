@@ -23,8 +23,7 @@ export const initWhisper = async (
     // @ts-ignore - Complex type inference
     const model: AutomaticSpeechRecognitionPipeline = await pipeline(
       "automatic-speech-recognition",
-      "onnx-community/whisper-base",
-      { device: "webgpu", dtype: "fp32" }
+      "Xenova/whisper-base.quant"
     );
 
     transcriber = model;
