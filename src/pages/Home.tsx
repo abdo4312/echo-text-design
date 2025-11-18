@@ -1,45 +1,114 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { RecordButton } from "@/components/RecordButton";
 import { FileUpload } from "@/components/FileUpload";
 import { TranscriptionResult } from "@/components/TranscriptionResult";
+import { ProgressBar } from "@/components/ProgressBar";
 import { toast } from "sonner";
+import { transcribeAudio, TranscriptionProgress } from "@/lib/whisper";
 
 const Home = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState("");
   const [showResult, setShowResult] = useState(false);
+  const [progress, setProgress] = useState<TranscriptionProgress | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
-  const handleToggleRecording = () => {
+  const handleToggleRecording = async () => {
     if (!isRecording) {
-      setIsRecording(true);
-      toast.success("بدأ التسجيل...");
-      // Simulate recording for demo
-      setTimeout(() => {
-        setIsRecording(false);
-        setTranscription("هذا نص تجريبي للتحويل من الصوت إلى نص. في التطبيق الفعلي، سيتم استخدام Whisper API لتحويل الصوت المسجل إلى نص بدقة عالية.");
-        setShowResult(true);
-        toast.success("تم التحويل بنجاح!");
-      }, 3000);
+      try {
+        // Start recording
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            sampleRate: 16000,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+          },
+        });
+
+        const mediaRecorder = new MediaRecorder(stream, {
+          mimeType: "audio/webm;codecs=opus",
+        });
+
+        chunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            chunksRef.current.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach((track) => track.stop());
+          
+          const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
+          const audioFile = new File([audioBlob], "recording.webm", {
+            type: "audio/webm",
+          });
+
+          // Process the recording
+          await processAudioFile(audioFile);
+        };
+
+        mediaRecorder.start();
+        mediaRecorderRef.current = mediaRecorder;
+        setIsRecording(true);
+        toast.success("بدأ التسجيل...");
+      } catch (error) {
+        console.error("Error starting recording:", error);
+        toast.error("فشل الوصول إلى الميكروفون");
+      }
     } else {
-      setIsRecording(false);
-      toast.info("تم إيقاف التسجيل");
+      // Stop recording
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.stop();
+        setIsRecording(false);
+        toast.info("جاري معالجة التسجيل...");
+      }
     }
   };
 
-  const handleFileSelect = (file: File) => {
-    toast.success(`تم اختيار الملف: ${file.name}`);
-    // Simulate processing
-    setTimeout(() => {
-      setTranscription(`تم تحميل الملف: ${file.name}\n\nهذا نص تجريبي. في التطبيق الفعلي، سيتم معالجة الملف الصوتي وتحويله إلى نص.`);
+  const processAudioFile = async (file: File) => {
+    setProgress({ status: "loading", progress: 0, message: "جاري التحضير..." });
+
+    try {
+      const text = await transcribeAudio(file, (progressUpdate) => {
+        setProgress(progressUpdate);
+      });
+
+      setTranscription(text || "لم يتم التعرف على أي كلام في التسجيل.");
       setShowResult(true);
+      setProgress(null);
       toast.success("تم التحويل بنجاح!");
-    }, 2000);
+    } catch (error) {
+      console.error("Transcription error:", error);
+      setProgress(null);
+      toast.error("حدث خطأ أثناء التحويل");
+    }
+  };
+
+  const handleFileSelect = async (file: File) => {
+    toast.success(`تم اختيار الملف: ${file.name}`);
+    await processAudioFile(file);
   };
 
   const handleBack = () => {
     setShowResult(false);
     setTranscription("");
   };
+
+  if (progress) {
+    return (
+      <div className="w-full max-w-2xl mx-auto">
+        <ProgressBar
+          progress={progress.progress}
+          status={progress.status}
+          message={progress.message}
+        />
+      </div>
+    );
+  }
 
   if (showResult) {
     return (
@@ -75,8 +144,15 @@ const Home = () => {
 
       <FileUpload onFileSelect={handleFileSelect} />
 
-      <div className="text-center text-xs text-muted-foreground max-w-md">
-        <p>الصيغ المدعومة: MP3, WAV, M4A</p>
+      <div className="text-center text-sm text-muted-foreground max-w-md space-y-2">
+        <p className="font-medium">✨ الميزات:</p>
+        <ul className="text-xs space-y-1">
+          <li>🎙️ تسجيل مباشر من الميكروفون</li>
+          <li>📁 رفع ملفات MP3, WAV, M4A</li>
+          <li>🚀 معالجة فورية بدون سيرفر</li>
+          <li>🔒 خصوصية تامة - كل شيء يعمل في متصفحك</li>
+          <li>💯 مجاني 100%</li>
+        </ul>
       </div>
     </div>
   );
